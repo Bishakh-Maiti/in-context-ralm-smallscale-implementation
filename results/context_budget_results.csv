@@ -1,0 +1,5 @@
+system,top_k,total_context_budget,doc_token_budget,exact_match,f1,retrieval_recall
+In-Context RALM,1,350,350,0.445,0.4904069264069264,0.455
+In-Context RALM,3,350,116,0.495,0.5590067873303167,0.75
+In-Context RALM,5,350,70,0.49,0.5405986928104575,0.845
+In-Context RALM,7,350,50,0.425,0.48017647058823526,0.875

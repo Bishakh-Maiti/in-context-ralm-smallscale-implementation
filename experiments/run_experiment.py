@@ -42,7 +42,9 @@ NUM_EVAL_SAMPLES = 200
 TOP_K_VALUES = [
     1,
     3,
-    5
+    5,
+    7
+    
 ]
 
 

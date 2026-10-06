@@ -1,0 +1,5 @@
+system,top_k,allocation,total_context_budget,document_budgets,exact_match,f1,retrieval_recall
+In-Context RALM,1,weighted,350,[350],0.445,0.4904069264069264,0.455
+In-Context RALM,3,weighted,350,"[150, 110, 90]",0.505,0.5645098039215687,0.75
+In-Context RALM,5,weighted,350,"[100, 80, 65, 55, 50]",0.53,0.5726764705882352,0.845
+In-Context RALM,7,weighted,350,"[100, 70, 50, 40, 35, 30, 25]",0.54,0.6008989729225024,0.875

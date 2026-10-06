@@ -17,9 +17,11 @@ class InContextRALM:
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
         self.model.to(self.device)
+
         self.model.eval()
 
         print("Model loaded.")
+
 
     # ---------------------------------------------------------
     # BASELINE
@@ -35,15 +37,18 @@ class InContextRALM:
 
         return self._generate(prompt)
 
+
     # ---------------------------------------------------------
     # IN-CONTEXT RALM
     # ---------------------------------------------------------
 
-    def generate_ralm(self, question, documents):
-
-        # Keep retrieved documents short enough that the
-        # question is never truncated.
-        max_doc_tokens = 70
+    def generate_ralm(
+        self,
+        question,
+        documents,
+        max_doc_tokens=70,
+        doc_token_budgets=None
+    ):
 
         processed_documents = []
 
@@ -54,7 +59,20 @@ class InContextRALM:
                 add_special_tokens=False
             )
 
-            doc_tokens = doc_tokens[:max_doc_tokens]
+            # ------------------------------------------------
+            # SELECT TOKEN BUDGET
+            # ------------------------------------------------
+
+            if doc_token_budgets is not None:
+                current_budget = doc_token_budgets[i]
+            else:
+                current_budget = max_doc_tokens
+
+            # ------------------------------------------------
+            # TRUNCATE DOCUMENT
+            # ------------------------------------------------
+
+            doc_tokens = doc_tokens[:current_budget]
 
             truncated_doc = self.tokenizer.decode(
                 doc_tokens,
@@ -65,7 +83,19 @@ class InContextRALM:
                 f"Document {i + 1}: {truncated_doc}"
             )
 
-        context = "\n\n".join(processed_documents)
+
+        # ----------------------------------------------------
+        # BUILD CONTEXT
+        # ----------------------------------------------------
+
+        context = "\n\n".join(
+            processed_documents
+        )
+
+
+        # ----------------------------------------------------
+        # BUILD PROMPT
+        # ----------------------------------------------------
 
         prompt = (
             "Answer the question using the provided documents.\n\n"
@@ -75,6 +105,7 @@ class InContextRALM:
         )
 
         return self._generate(prompt)
+
 
     # ---------------------------------------------------------
     # GENERATION

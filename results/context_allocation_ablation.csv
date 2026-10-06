@@ -1,0 +1,13 @@
+system,top_k,allocation,total_context_budget,document_budgets,exact_match,f1,retrieval_recall
+In-Context RALM,1,uniform,350,[350],0.495,0.5393946886446886,0.575
+In-Context RALM,1,weighted,350,[350],0.495,0.5393946886446886,0.575
+In-Context RALM,1,top_heavy,350,[350],0.495,0.5393946886446886,0.575
+In-Context RALM,3,uniform,350,"[117, 117, 116]",0.615,0.6603980823098471,0.835
+In-Context RALM,3,weighted,350,"[150, 110, 90]",0.615,0.6520647489765136,0.835
+In-Context RALM,3,top_heavy,350,"[190, 90, 70]",0.605,0.6457216117216117,0.835
+In-Context RALM,5,uniform,350,"[70, 70, 70, 70, 70]",0.535,0.5748079365079365,0.945
+In-Context RALM,5,weighted,350,"[100, 80, 65, 55, 50]",0.61,0.6387234791352439,0.945
+In-Context RALM,5,top_heavy,350,"[150, 80, 50, 40, 30]",0.625,0.6597591934209581,0.945
+In-Context RALM,7,uniform,350,"[50, 50, 50, 50, 50, 50, 50]",0.45,0.5070098039215687,0.96
+In-Context RALM,7,weighted,350,"[100, 70, 50, 40, 35, 30, 25]",0.615,0.6500647489765137,0.96
+In-Context RALM,7,top_heavy,350,"[140, 70, 45, 35, 25, 20, 15]",0.62,0.6567314156431803,0.96
