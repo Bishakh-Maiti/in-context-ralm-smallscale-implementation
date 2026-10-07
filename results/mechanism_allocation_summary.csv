@@ -1,0 +1,4 @@
+allocation,top_k,total_context_budget,answer_survival_rate,answer_survival_percent
+uniform,7,350,0.425,42.5
+weighted,7,350,0.643,64.3
+top_heavy,7,350,0.713,71.3

@@ -33,7 +33,7 @@ from src.evaluate import exact_match, token_f1, retrieval_recall
 # CONFIGURATION
 # ============================================================
 
-NUM_EVAL_SAMPLES = 200
+NUM_EVAL_SAMPLES = 1000
 
 TOP_K_VALUES = [1, 3, 5, 7]
 
@@ -41,7 +41,15 @@ TOTAL_CONTEXT_BUDGET = 350
 
 MODEL_NAME = "google/flan-t5-small"
 
-OUTPUT_FILE = "results/context_allocation_ablation_fixed.csv"
+# Aggregate results
+AGGREGATE_OUTPUT = (
+    "results/context_allocation_ablation_1000.csv"
+)
+
+# Per-question results
+DETAILED_OUTPUT = (
+    "results/context_allocation_detailed_1000.csv"
+)
 
 
 # ============================================================
@@ -50,8 +58,7 @@ OUTPUT_FILE = "results/context_allocation_ablation_fixed.csv"
 
 def get_uniform_budgets(k, total_budget):
     """
-    Divide the total context budget as equally as possible
-    among the retrieved documents.
+    Divide the total context budget as equally as possible.
     """
 
     base = total_budget // k
@@ -74,8 +81,11 @@ def get_weighted_budgets(k, total_budget):
 
     allocations = {
         1: [350],
+
         3: [150, 110, 90],
+
         5: [100, 80, 65, 55, 50],
+
         7: [100, 70, 50, 40, 35, 30, 25],
     }
 
@@ -90,14 +100,17 @@ def get_top_heavy_budgets(k, total_budget):
     """
     Strong rank-aware allocation.
 
-    Higher-ranked documents receive substantially more
-    context than lower-ranked documents.
+    Higher-ranked documents receive substantially
+    more context.
     """
 
     allocations = {
         1: [350],
+
         3: [190, 90, 70],
+
         5: [150, 80, 50, 40, 30],
+
         7: [140, 70, 45, 35, 25, 20, 15],
     }
 
@@ -109,9 +122,6 @@ def get_top_heavy_budgets(k, total_budget):
 
 
 def get_allocation_strategies(k):
-    """
-    Return all context allocation strategies for k.
-    """
 
     return {
         "uniform": get_uniform_budgets(
@@ -174,27 +184,27 @@ def main():
 
     print("\n")
     print("=" * 70)
-    print("FIXED CONTEXT ALLOCATION EXPERIMENT")
+    print("RALM CONTEXT ALLOCATION EXPERIMENT")
     print("=" * 70)
 
     print(
-        f"Evaluation samples   : {NUM_EVAL_SAMPLES}"
+        f"Evaluation samples    : {NUM_EVAL_SAMPLES}"
     )
 
     print(
-        f"Top-k values         : {TOP_K_VALUES}"
+        f"Top-k values          : {TOP_K_VALUES}"
     )
 
     print(
-        f"Total context budget: {TOTAL_CONTEXT_BUDGET}"
+        f"Total context budget : {TOTAL_CONTEXT_BUDGET}"
     )
 
     print(
-        f"Model                : {MODEL_NAME}"
+        f"Model                 : {MODEL_NAME}"
     )
 
     print(
-        "Retrieval corpus     : FULL SQuAD validation contexts"
+        "Retrieval corpus      : FULL SQuAD validation contexts"
     )
 
     print("=" * 70)
@@ -206,7 +216,7 @@ def main():
     validate_allocations()
 
     # ========================================================
-    # LOAD SQUAD
+    # LOAD DATASET
     # ========================================================
 
     print("\nLoading SQuAD...")
@@ -241,7 +251,7 @@ def main():
     )
 
     # ========================================================
-    # SELECT EVALUATION SAMPLES
+    # SELECT EVALUATION DATA
     # ========================================================
 
     print(
@@ -259,7 +269,7 @@ def main():
     )
 
     # ========================================================
-    # INITIALIZE BM25
+    # INITIALIZE RETRIEVER
     # ========================================================
 
     print("\nInitializing BM25 retriever...")
@@ -331,7 +341,7 @@ def main():
             )
 
     # ========================================================
-    # RETRIEVAL SANITY CHECK
+    # CALCULATE RETRIEVAL RECALL
     # ========================================================
 
     print("\n")
@@ -363,10 +373,12 @@ def main():
     print("=" * 70)
 
     # ========================================================
-    # RUN ALLOCATION EXPERIMENT
+    # RUN GENERATION EXPERIMENT
     # ========================================================
 
-    results = []
+    aggregate_results = []
+
+    detailed_results = []
 
     print("\n")
     print("=" * 70)
@@ -395,7 +407,7 @@ def main():
             f1_scores = []
 
             # ------------------------------------------------
-            # GENERATION
+            # GENERATE ANSWERS
             # ------------------------------------------------
 
             for sample_idx, sample in enumerate(
@@ -409,14 +421,13 @@ def main():
 
                 gold_answers = sample["answers"]["text"]
 
-                # IMPORTANT:
-                # Retrieval is retrieved ONLY from cache.
-                # Therefore allocation strategy cannot
-                # change retrieval recall.
-
                 retrieved_docs = retrieval_cache[k][
                     sample_idx
                 ]
+
+                # --------------------------------------------
+                # GENERATE
+                # --------------------------------------------
 
                 prediction = model.generate_ralm(
                     question,
@@ -424,9 +435,9 @@ def main():
                     doc_token_budgets=doc_budgets
                 )
 
-                # ------------------------------------------------
-                # EVALUATION
-                # ------------------------------------------------
+                # --------------------------------------------
+                # EVALUATE
+                # --------------------------------------------
 
                 em = max(
                     exact_match(
@@ -448,6 +459,36 @@ def main():
 
                 f1_scores.append(f1)
 
+                # --------------------------------------------
+                # SAVE PER-QUESTION RESULT
+                # --------------------------------------------
+
+                detailed_results.append(
+                    {
+                        "sample_index": sample_idx,
+
+                        "question_id":
+                            sample["id"],
+
+                        "top_k": k,
+
+                        "allocation":
+                            strategy_name,
+
+                        "document_budgets":
+                            str(doc_budgets),
+
+                        "exact_match": em,
+
+                        "f1": f1,
+
+                        "retrieval_recall":
+                            retrieval_recall_cache[k][
+                                sample_idx
+                            ],
+                    }
+                )
+
             # ------------------------------------------------
             # AGGREGATE
             # ------------------------------------------------
@@ -464,21 +505,22 @@ def main():
                 len(f1_scores)
             )
 
-            # IMPORTANT:
-            # Use the cached retrieval recall.
             avg_recall = average_recall[k]
 
             # ------------------------------------------------
-            # STORE RESULT
+            # SAVE AGGREGATE RESULT
             # ------------------------------------------------
 
-            results.append(
+            aggregate_results.append(
                 {
-                    "system": "In-Context RALM",
+                    "system":
+                        "In-Context RALM",
 
-                    "top_k": k,
+                    "top_k":
+                        k,
 
-                    "allocation": strategy_name,
+                    "allocation":
+                        strategy_name,
 
                     "total_context_budget":
                         TOTAL_CONTEXT_BUDGET,
@@ -497,31 +539,53 @@ def main():
                 }
             )
 
+            # ------------------------------------------------
+            # PRINT RESULT
+            # ------------------------------------------------
+
             print("\nRESULT")
 
             print(
-                f"Allocation      : {strategy_name}"
+                f"Allocation       : "
+                f"{strategy_name}"
             )
 
             print(
-                f"Top-k           : {k}"
+                f"Top-k             : "
+                f"{k}"
             )
 
             print(
-                f"Budgets         : {doc_budgets}"
+                f"Document budgets  : "
+                f"{doc_budgets}"
             )
 
             print(
-                f"Exact Match     : {avg_em:.4f}"
+                f"Exact Match       : "
+                f"{avg_em:.4f}"
             )
 
             print(
-                f"F1              : {avg_f1:.4f}"
+                f"F1                : "
+                f"{avg_f1:.4f}"
             )
 
             print(
-                f"Retrieval Recall: {avg_recall:.4f}"
+                f"Retrieval Recall  : "
+                f"{avg_recall:.4f}"
             )
+
+    # ========================================================
+    # CONVERT TO DATAFRAMES
+    # ========================================================
+
+    aggregate_df = pd.DataFrame(
+        aggregate_results
+    )
+
+    detailed_df = pd.DataFrame(
+        detailed_results
+    )
 
     # ========================================================
     # FINAL RETRIEVAL CONSISTENCY CHECK
@@ -532,12 +596,10 @@ def main():
     print("FINAL RETRIEVAL CONSISTENCY CHECK")
     print("=" * 70)
 
-    results_df = pd.DataFrame(results)
-
     for k in TOP_K_VALUES:
 
-        recalls = results_df[
-            results_df["top_k"] == k
+        recalls = aggregate_df[
+            aggregate_df["top_k"] == k
         ]["retrieval_recall"].unique()
 
         print(
@@ -559,6 +621,41 @@ def main():
     print("=" * 70)
 
     # ========================================================
+    # CHECK DETAILED DATASET SIZE
+    # ========================================================
+
+    expected_rows = (
+        NUM_EVAL_SAMPLES
+        * len(TOP_K_VALUES)
+        * 3
+    )
+
+    actual_rows = len(detailed_df)
+
+    print("\n")
+    print("=" * 70)
+    print("DETAILED RESULT VALIDATION")
+    print("=" * 70)
+
+    print(
+        f"Expected detailed rows: "
+        f"{expected_rows}"
+    )
+
+    print(
+        f"Actual detailed rows  : "
+        f"{actual_rows}"
+    )
+
+    assert actual_rows == expected_rows
+
+    print(
+        "PASS: All per-question results were saved."
+    )
+
+    print("=" * 70)
+
+    # ========================================================
     # SAVE RESULTS
     # ========================================================
 
@@ -567,21 +664,26 @@ def main():
         exist_ok=True
     )
 
-    results_df.to_csv(
-        OUTPUT_FILE,
+    aggregate_df.to_csv(
+        AGGREGATE_OUTPUT,
+        index=False
+    )
+
+    detailed_df.to_csv(
+        DETAILED_OUTPUT,
         index=False
     )
 
     # ========================================================
-    # DISPLAY FINAL RESULTS
+    # DISPLAY FINAL AGGREGATE RESULTS
     # ========================================================
 
     print("\n")
     print("=" * 70)
-    print("FINAL RESULTS")
+    print("FINAL AGGREGATE RESULTS")
     print("=" * 70)
 
-    display_df = results_df.copy()
+    display_df = aggregate_df.copy()
 
     display_df["exact_match"] = (
         display_df["exact_match"] * 100
@@ -601,15 +703,30 @@ def main():
         )
     )
 
+    # ========================================================
+    # SAVE SUMMARY
+    # ========================================================
+
     print("\n")
+    print("=" * 70)
+    print("FILES SAVED")
     print("=" * 70)
 
     print(
-        f"Results saved to:\n"
-        f"{OUTPUT_FILE}"
+        f"Aggregate results:\n"
+        f"{AGGREGATE_OUTPUT}"
+    )
+
+    print(
+        f"\nDetailed per-question results:\n"
+        f"{DETAILED_OUTPUT}"
     )
 
     print("=" * 70)
+
+    print(
+        "\nExperiment completed successfully."
+    )
 
 
 # ============================================================
