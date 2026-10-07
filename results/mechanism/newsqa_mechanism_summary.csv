@@ -1,0 +1,4 @@
+allocation,top_k,total_context_budget,answer_survival_rate,answer_survival_percent,conditional_on_retrieved_survival,conditional_survival_percent
+uniform,7,350,0.294,29.4,0.40440165061898214,40.44016506189821
+weighted,7,350,0.424,42.4,0.5832187070151307,58.32187070151307
+top_heavy,7,350,0.497,49.7,0.6836313617606602,68.36313617606602
